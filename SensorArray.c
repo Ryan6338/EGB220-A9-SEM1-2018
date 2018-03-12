@@ -26,8 +26,8 @@ void initialise_sensors() {
 
 	ADCSRB |= (1<<ADHSM); // Enable ADC High-Speed mode for bettery resolution at high speed				
 					
-	ADMUX |=	(1<<REFS0) 	//Set reference voltage to AVcc (5v)
-					| (1<<ADLAR);	//Left adjust ADC
+	ADMUX |=	(1<<REFS0); 	//Set reference voltage to AVcc (5v)
+					//| (1<<ADLAR);	//Left adjust ADC
 }
 
 uint16_t read_sensor(uint8_t sensor) {
