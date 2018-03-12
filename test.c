@@ -79,6 +79,6 @@ void set_motor_power_LR(float left, float right) {
 int main(void) {
 	
 	initialize_registers();
-	
+	initialise_sensors();
 	return 1;
 }
