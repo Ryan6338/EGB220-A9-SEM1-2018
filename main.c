@@ -66,10 +66,10 @@ void set_motor_power_LR(float left, float right) {
 	}
 	
 	if (right > 0) {
-		OCR1A = (uint8_t) (right * 65535);
+		OCR1A = (uint16_t) (right * 65535);
 		OCR1B = 0;
 	} else {
-		OCR1B = (uint8_t) -(right * 65535);
+		OCR1B = (uint16_t) -(right * 65535);
 		OCR1A = 0;
 	}
 }
