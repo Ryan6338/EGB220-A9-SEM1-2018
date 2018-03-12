@@ -1,11 +1,20 @@
+TARGETS = \
+	test.o \
+	SensorArray.o
 
-MAIN = test
+all: $(TARGETS) FLASH.bin
 
-FLASH.bin : $(MAIN).elf
-	avr-objcopy -O binary $(MAIN).elf FLASH.bin
+clean:
+	for f in $(TARGETS); do \
+		if [ -f $$f.elf ]; then rm $$f.elf; fi; \
+		if [ -f $$f.o ]; then rm $$f.o; fi; \
+	done
 
-$(MAIN).elf : $(MAIN).o
-	avr-gcc $(MAIN).o -o $(MAIN).elf
+rebuild: clean all
 
-$(MAIN).o : $(MAIN).c
-	avr-gcc -O1 -mmcu=atmega32u4 -c $(MAIN).c -o $(MAIN).o
+%.o : %.c
+	avr-gcc -O1 -mmcu=atmega32u4 -c $< -o $@
+
+FLASH.bin : $(TARGETS)
+	avr-gcc $(TARGETS) -o out.elf
+	avr-objcopy -O binary out.elf $@

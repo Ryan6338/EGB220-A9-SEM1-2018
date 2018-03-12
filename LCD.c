@@ -1,0 +1,4 @@
+
+void initLCD() {
+	TWBR = 
+}
