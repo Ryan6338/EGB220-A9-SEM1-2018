@@ -1,9 +1,6 @@
 #define F_CPU 16000000
-#define LIGHT_DELAY 100
-#define REPEAT_COUNT 5
 
 #include <avr/io.h>
-#include <avr/delay.h>
 #include <avr/interrupt.h>
 
 //Set leds using bitmap
@@ -81,6 +78,7 @@ int main(void) {
 	initialize_registers();
 	initialise_sensors();
 	
-	//comment
+	set_motor_power_LR((double) get_reflected_light_values()[0] / 1024.0, 0);
+	
 	return 1;
 }

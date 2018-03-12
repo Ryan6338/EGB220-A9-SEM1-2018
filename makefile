@@ -1,5 +1,5 @@
 TARGETS = \
-	test.o \
+	main.o \
 	SensorArray.o
 
 all: $(TARGETS) FLASH.bin
