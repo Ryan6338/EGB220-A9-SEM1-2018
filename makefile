@@ -12,7 +12,7 @@ clean:
 
 rebuild: clean all
 
-%.o : %.c
+%.o : %.c %.h
 	avr-gcc -O1 -mmcu=atmega32u4 -c $< -o $@
 
 FLASH.bin : $(TARGETS)

@@ -1,7 +1,5 @@
 #include "SensorArray.h"
 
-uint16_t reflected_light[8];
-
 void initialise_sensors() {
 	//Setup registers for inputs on sensor pins
 	DDRF &= ~(1<<4) 	//S1
