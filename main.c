@@ -2,6 +2,7 @@
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include "SensorArray.h"
 
 //Set leds using bitmap
 void set_leds(uint8_t format) {
@@ -78,7 +79,11 @@ int main(void) {
 	initialize_registers();
 	initialise_sensors();
 	
-	set_motor_power_LR((double) get_reflected_light_values()[0] / 1024.0, 0);
+	uint16_t * reflected_light_values = get_reflected_light_values();
+	
+	while (1) {
+		set_motor_power_LR((double) reflected_light_values[0] / 1024.0, (double) reflected_light_values[0] / 1024.0);
+	}
 	
 	return 1;
 }
