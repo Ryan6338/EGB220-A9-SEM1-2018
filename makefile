@@ -1,6 +1,7 @@
 TARGETS = \
 	main.o \
-	SensorArray.o
+	SensorArray.o \
+	Serial.o
 
 all: $(TARGETS) FLASH.bin
 
@@ -13,7 +14,7 @@ clean:
 rebuild: clean all
 
 %.o : %.c %.h
-	avr-gcc -O1 -mmcu=atmega32u4 -c $< -o $@
+	avr-gcc -O1 -lprintf_flt -lm -Werror -Wl,-u,vfprintf -lprintf_min -mmcu=atmega32u4 -c $< -o $@
 
 FLASH.bin : $(TARGETS)
 	avr-gcc $(TARGETS) -o out.elf

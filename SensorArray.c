@@ -19,18 +19,18 @@ void initialise_sensors() {
 	DDRB |= (1<<3);
 	PORTB |= (1<<3); //Turn on (Pull high)
 	
+	ADMUX |=	(1<<REFS0); 	//Set reference voltage
+				//| (1<<REFS1)
+				//| (1<<ADLAR);	//Left adjust ADC
 	
 	//Initialize ADC
-	ADCSRA |= (1<<ADPS2) | (1<<ADPS1) //Prescaler - 64 (250kHz)
+	ADCSRA |= (1<<ADPS2) | (1<<ADPS1) | (0<<ADPS0) //Prescaler - 128 (125kHz)
 					| (1<<ADEN);	//Enable ADC
 
-	ADCSRB |= (1<<ADHSM); // Enable ADC High-Speed mode for bettery resolution at high speed				
-					
-	ADMUX |=	(1<<REFS0); 	//Set reference voltage to AVcc (5v)
-					//| (1<<ADLAR);	//Left adjust ADC
+	ADCSRB |= (1<<ADHSM); // Enable ADC High-Speed mode for better resolution at high speed				
 }
 
-uint16_t read_sensor(uint8_t sensor) {
+uint16_t read_sensor(uint16_t sensor) {
 	//Set ADC channel using ADMUX4:0 & ADCSRB5
 	//See datasheet p.313 for ADC channel map
 	
@@ -74,12 +74,15 @@ uint16_t read_sensor(uint8_t sensor) {
 	//Block until ADSC clears then return value. ////Thread blocking is not good
 	while(((ADCSRA>>ADSC)&1));
 	
-	return (ADCH<<8) | ADCL; //Return value read from ADCH & ADCL registers
+	uint8_t sensor_low = ADCL;
+	uint8_t sensor_high = ADCH;
+	
+	return (sensor_high << 8) | sensor_low; //Return value read from ADCH & ADCL registers
 	
 }
 
 //Read all sensor values and return in an array
-uint16_t * get_reflected_light_values() {
+void get_reflected_light_values(uint16_t * reflected_light) {
 	reflected_light[0] = read_sensor(0);
 	reflected_light[1] = read_sensor(1);
 	reflected_light[2] = read_sensor(2);
@@ -88,6 +91,4 @@ uint16_t * get_reflected_light_values() {
 	reflected_light[5] = read_sensor(5);
 	reflected_light[6] = read_sensor(6);
 	reflected_light[7] = read_sensor(7);
-	
-	return reflected_light;
 }
