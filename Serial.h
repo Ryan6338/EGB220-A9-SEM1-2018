@@ -57,6 +57,13 @@ void serial_println(uint8_t * msg, uint8_t len);
  */
 void serial_tx_uint16_t(uint16_t i);
 
+/* serial_tx_uint16_t(uint16_t i)
+ *
+ * Transmit a uint16_t formatted as a string
+ * over UART
+ */
+void serial_tx_int16_t(int16_t i);
+
 
 /* serial_cls()
  *

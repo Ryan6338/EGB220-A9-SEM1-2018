@@ -1,4 +1,7 @@
 
+#define LIGHT_THRESHOLD_LOW 10
+#define LIGHT_THRESHOLD_HIGH 200
+
 float line_edge_value;
 float kP, kI, kD;
 
@@ -24,6 +27,18 @@ float calculate_angle() {
 }*/
 
 int32_t error_integral = 0;
+
+const int16_t angle_offset[] = {-10, -7, -3, 3, 7, 10};
+
+int16_t calculate_angle(uint16_t * reflected_light, uint8_t sensor_count) {
+	
+	int16_t angle = 0;
+	
+	for (int i = 0; i < sensor_count; i++) {
+		if (reflected_light[i] < LIGHT_THRESHOLD_HIGH) {
+			angle += reflected_light[i] / 10;
+		}
+}
 
 void update_drive() {
 	//Calculate angular error from sensor array. Target position is always 0deg so error is opposite of current angle (0 - current angle).

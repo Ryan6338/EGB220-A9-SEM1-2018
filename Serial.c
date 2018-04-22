@@ -83,6 +83,20 @@ void serial_tx_uint16_t(uint16_t i) {
 	serial_println(buf, 6);
 }
 
+void serial_tx_int16_t(int16_t i) {
+	//Initialise buffer. Max value for uint16_t is 65535, thus max chars needed is 6 (one for termination)
+	uint8_t buf[6];
+	
+	//Set buffer to 0
+	memset(buf, 0, 6);
+	
+	//Convert unsigned integer i to string in buf
+	itoa(i, (char*)buf, 10);
+	
+	//Transmit contents of buffer over UART
+	serial_println(buf, 6);
+}
+
 void serial_cls() {
 	uint8_t buf[2];
 	
