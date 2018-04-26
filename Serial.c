@@ -55,6 +55,10 @@ void serial_print(uint8_t * msg, uint8_t len) {
 			serial_tx((uint8_t) c);
 		}
 	}
+	
+	serial_tx((uint8_t) ' ');
+	serial_tx((uint8_t) ' ');
+	serial_tx((uint8_t) ' ');
 }
 
 void serial_println(uint8_t * msg, uint8_t len) {

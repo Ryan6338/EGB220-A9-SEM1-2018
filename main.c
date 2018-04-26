@@ -13,10 +13,11 @@
 #include "SensorArray.h"
 #include "Serial.h"
 
-#define MIN 550
-#define MAX 1000
+#define MIN 70
+#define MAX 900
 
-#define KP 0.03
+#define KP 0.05
+#define KI 0.01
 
 //Set leds using bitmap
 void set_leds(uint8_t format) {
@@ -105,6 +106,8 @@ uint8_t button_states;
 
 int main(void) {
 	
+	//sei();
+	
 	initialize_registers();
 	initialise_sensors();
 	
@@ -115,34 +118,23 @@ int main(void) {
 	
 	int16_t refl_mid = (MAX - MIN) / 2;
 	
+	float integral = 0;
+	
 	while (1) {
 		
-		int max = 195;
+		get_reflected_light_values(reflected_light_values);
 		
-		if ((PINC >> 7) & 1) {
-			_delay_ms(100);
-			int i;
-			for (i = 20; i<=max; i++) {
-				OCR0A = i;
-				OCR1A = i - 3;
-				_delay_ms(10);
-			}
-			
-			OCR0A = max;
-			OCR1A = max - 3;
-			
-			_delay_ms(0);
-			
-			OCR0A = 0;
-			OCR0B = 100;
-			OCR1A = 0;
-			OCR1B = 100;
-			
-			_delay_ms(100);
-			
-			OCR0B = 0;
-			OCR1B = 0;
-		}
+		float error = ((float) (reflected_light_values[4] - MIN) - refl_mid) / refl_mid;
+		
+		integral = integral * 0.99 + error * 0.01;
+		
+		float turn_value = error * KP + integral * KI;
+		float power_left = 0.15 - turn_value;
+		float power_right = 0.15 + turn_value;
+
+		set_motor_power_LR(power_left, power_right);
+		
+		_delay_ms(10);
 	}
 	
 	return 1;
@@ -159,7 +151,7 @@ float power_right = 0.15 + turn_value;
 
 set_motor_power_LR(power_left, power_right);*/
 
-	/*	serial_cursor_0();
+/*		serial_cursor_0();
 serial_tx_uint16_t(reflected_light_values[0]);
 _delay_ms(50);
 serial_tx_uint16_t(reflected_light_values[1]);
@@ -175,10 +167,8 @@ _delay_ms(50);
 serial_tx_uint16_t(reflected_light_values[6]);
 _delay_ms(50);
 serial_tx_uint16_t(reflected_light_values[7]);
-_delay_ms(200);*/
-
-//USART_Transmit((uint8_t) buf[0]);
-//_delay_ms(20);
+_delay_ms(200);
+	}*/
 
 /*button_states = button_states | button_states << 2;
 

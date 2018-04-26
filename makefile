@@ -17,5 +17,5 @@ rebuild: clean all
 	avr-gcc -O1 -lprintf_flt -lm -Werror -Wl,-u,vfprintf -lprintf_min -mmcu=atmega32u4 -c $< -o $@
 
 FLASH.bin : $(TARGETS)
-	avr-gcc $(TARGETS) -o out.elf
+	avr-gcc $(TARGETS) -mmcu=atmega32u4 -o out.elf
 	avr-objcopy -O binary out.elf $@
