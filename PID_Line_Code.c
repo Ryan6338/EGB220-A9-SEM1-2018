@@ -1,47 +1,58 @@
+#define LIGHT_THRESHOLD_HIGH 920 //Black
+#define LIGHT_THRESHOLD_LOW 60 //White
+#define LIGHT_THRESHOLD_MID (LIGHT_THRESHOLD_LOW + (LIGHT_THRESHOLD_HIGH - LIGHT_THRESHOLD_LOW) / 2)
+#define SENSOR_COUNT 8
 
-#define LIGHT_THRESHOLD_LOW 10
-#define LIGHT_THRESHOLD_HIGH 200
+#include "PID_Line_Code.h"
 
 float line_edge_value;
 float kP, kI, kD;
 
-
-/* Convert sensor values to estimate angle from tangent of line
- * Can be modified to account for radius of line arc to improve smoothness but will be restricted by width of sensor array
-
-float calculate_angle() {
-	Convert sensor values to represent deviation in angle from straight
-	
-		Scale sensor input to minimum and maximum possible values between 0 and 1:
-			Scaled_Value = (Sensor_N_Value - Minimum_Value) / Maximum_Value
-	
-		Convert scaled angle to estimated angle, discard any sensor values that are outside of expected value ranges as they provide no data:
-			Angle_to_Sensor = toAngle(Scaled_Value)
-			toAngle() function needs to be determined by measuring sensor outputs as they're moved across the line. May be non-linear
-	
-		Average known angles to sensors to get estimation of robot angle to line
-			angle = (sensor_1 + dAngPivot_1 + ... + sensor_n + dAngPivot_n) / n;
-	
-	
-	return 0f;
-}*/
-
 int32_t error_integral = 0;
 
-const int16_t angle_offset[] = {-10, -7, -3, 3, 7, 10};
+const int16_t sensor_offset[] = {-33, -24, -15, -5, 5, 15, 24, 33};
 
-int16_t calculate_angle(uint16_t * reflected_light, uint8_t sensor_count) {
-	
-	int16_t angle = 0;
-	
-	for (int i = 0; i < sensor_count; i++) {
-		if (reflected_light[i] < LIGHT_THRESHOLD_HIGH) {
-			angle += reflected_light[i] / 10;
-		}
+//Function scales light value to be linear with distance from line
+double adjust_light(uint16_t r) {
+	return ((double) r - 12.4290) / 46.7460;
 }
 
-void update_drive() {
-	//Calculate angular error from sensor array. Target position is always 0deg so error is opposite of current angle (0 - current angle).
-	int16_t error = calculate_angle();
-	error_integral += error;
+double calculate_error(uint16_t * reflected_light) {
+	
+	double error = 0;
+	uint8_t useful_sensors = 0;
+	
+	int i;
+	for (i = 0; i < SENSOR_COUNT; i++) {
+		
+		//Loop through sensors, check if they are within threshold. If so, linearize and add to average error.
+		
+		//If sensor is within threshold values
+		if (reflected_light[i] <= LIGHT_THRESHOLD_HIGH) {
+			
+			useful_sensors++;
+			
+			//If sensor is last sensor
+			if (i == SENSOR_COUNT - 1) {
+				//Last sensor reflects less light ? left of line : right of line
+				if (reflected_light[SENSOR_COUNT] < reflected_light[SENSOR_COUNT - 1]) {
+					error = error - adjust_light(reflected_light[i]) - sensor_offset[i];
+				} else {
+					error = error + adjust_light(reflected_light[i]) - sensor_offset[i];
+				}
+				
+			} else { //If not last sensor
+				//Next sensor reflects more light ? Left of line : Right of line
+				if (reflected_light[i] > reflected_light[i+1]) {
+					error = error - adjust_light(reflected_light[i]) - sensor_offset[i];
+				} else {
+					error = error + adjust_light(reflected_light[i]) - sensor_offset[i];
+				}
+			}
+		}
+	}
+	
+	if (useful_sensors > 0) error = error / useful_sensors;
+	
+	return error;
 }

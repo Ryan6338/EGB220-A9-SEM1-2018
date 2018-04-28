@@ -3,21 +3,20 @@
 #endif
 
 #include <avr/io.h>
-#include <avr/interrupt.h>
-#include <String.h>
+//#include <avr/interrupt.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <util/delay.h>
+#include <math.h>
 
-#include "SensorArray.h"
 #include "Serial.h"
+#include "PID_Line_Code.h"
+#include "SensorArray.h"
 
-#define MIN 70
-#define MAX 900
-
-#define KP 0.05
-#define KI 0.01
+#define KP 1.3
+#define KI 0.4
+#define KD 0.15
 
 //Set leds using bitmap
 void set_leds(uint8_t format) {
@@ -62,8 +61,8 @@ void initialize_registers() {
 	DDRD |= (1<<0);
 	
 	//Prescaler set to 256
-	TCCR0A |= (1<<7)|(1<<5) | (1<<WGM10);
-	TCCR0B |= (1<<2);
+	TCCR0A |= (1<<7) | (1<<5) | (1<<WGM10);
+	TCCR0B |= (1<<CS02);
 	
 	//Set Waveform generation to 8-bit, phase corrected PWM.
 	TCCR1A |= (1<<COM1A1) | (1<<COM1B1) | (1<<WGM10);
@@ -74,14 +73,13 @@ void initialize_registers() {
 }
 
 //Set motor power (-1.0 to 1.0)
-void set_motor_power_LR(float left, float right) {
+void set_motor_power_LR(double a, double b) {
 	
-	//Determine if power<-1 or power>1. If so, scale both motors until speed=1 for fastest motor
-	//int32_t scale = (abs(left) > abs(right) ? abs(left) : abs(right));
-	/*if (scale > 1) {
-		left = left / scale;
-		right = right / scale;
-	}*/
+	double scale = fabs(a) > fabs(b) ? fabs(a) : fabs(b);
+	if (scale < 1) scale = 1;
+	
+	double left = a / scale;
+	double right = b / scale;
 	
 	if (left > 0) {
 		OCR0A = (uint8_t) (left * 255);
@@ -100,13 +98,7 @@ void set_motor_power_LR(float left, float right) {
 	}
 }
 
-uint8_t sw0_states;
-uint8_t sw1_states;
-uint8_t button_states;
-
 int main(void) {
-	
-	//sei();
 	
 	initialize_registers();
 	initialise_sensors();
@@ -114,27 +106,33 @@ int main(void) {
 	//Initialise serial 1. TXD PD3, RXD PD2.
 	init_serial(9600);
 	
-	int16_t reflected_light_values[8];
+	uint16_t reflected_light_values[8];
 	
-	int16_t refl_mid = (MAX - MIN) / 2;
+	//buf = (char*) malloc(20 * sizeof(char*));
 	
-	float integral = 0;
+	double integral = 0;
+	double last_error = 0;
+	double last_derivate = 0;
 	
 	while (1) {
-		
 		get_reflected_light_values(reflected_light_values);
-		
-		float error = ((float) (reflected_light_values[4] - MIN) - refl_mid) / refl_mid;
-		
-		integral = integral * 0.99 + error * 0.01;
-		
-		float turn_value = error * KP + integral * KI;
-		float power_left = 0.15 - turn_value;
-		float power_right = 0.15 + turn_value;
 
-		set_motor_power_LR(power_left, power_right);
+		//Error between 0 and 1
+		double error = calculate_error(reflected_light_values) / 63;
 		
-		_delay_ms(10);
+		double derivative = ((error - last_error) / 0.002) * 0.5 + last_derivate * 0.5;
+		last_derivate = derivative;
+		last_error = error;
+		
+		integral = integral * 0.99 + error * 0.002;
+		
+		if (integral * error < 0) integral = 0;
+		
+		double turn_value = error * KP + integral * KI + derivative * KD;
+		
+		set_motor_power_LR(1 - turn_value, 1 + turn_value);
+		
+		_delay_ms(2);
 	}
 	
 	return 1;
@@ -151,25 +149,6 @@ float power_right = 0.15 + turn_value;
 
 set_motor_power_LR(power_left, power_right);*/
 
-/*		serial_cursor_0();
-serial_tx_uint16_t(reflected_light_values[0]);
-_delay_ms(50);
-serial_tx_uint16_t(reflected_light_values[1]);
-_delay_ms(50);
-serial_tx_uint16_t(reflected_light_values[2]);
-_delay_ms(50);
-serial_tx_uint16_t(reflected_light_values[3]);
-_delay_ms(50);
-serial_tx_uint16_t(reflected_light_values[4]);
-_delay_ms(50);
-serial_tx_uint16_t(reflected_light_values[5]);
-_delay_ms(50);
-serial_tx_uint16_t(reflected_light_values[6]);
-_delay_ms(50);
-serial_tx_uint16_t(reflected_light_values[7]);
-_delay_ms(200);
-	}*/
-
 /*button_states = button_states | button_states << 2;
 
 //Update button state
@@ -182,4 +161,79 @@ if (sw1_states == 0b11111111) button_states |= (1 << 1);
 if (sw0_states == 0) button_states &= ~(1 << 0);
 if (sw1_states == 0) button_states &= ~(1 << 1);
 
-if ((button_states >> 0) & 1) set_motor_power_LR(0, 0);*/
+		//USART_Transmit((uint8_t) buf[0]);
+		//_delay_ms(20);
+		
+		/*
+		//Update button state
+		sw0_button_state = sw0_button_state << 1 | ((PINC >> 6) & 1);
+		sw1_button_state = sw1_button_state << 1 | ((PINC >> 7) & 1);
+		
+		if (sw0_states == 0b11111111) current_button_states |= (1 << 0);
+		if (sw1_states == 0b11111111) current_button_states |= (1 << 1);
+		
+		if (sw0_states == 0) current_button_states &= ~(1 << 0);
+		if (sw1_states == 0) current_button_states &= ~(1 << 1);
+		
+		if (((current_button_states >> 0) & 1) == 1) set_motor_power_LR(0, 0);
+		if (((current_button_states >> 1) & 1) == 1) set_motor_power_LR(1, 1);*/
+	
+		/*uint8_t speed = reflected_light_values[0];
+		set_motor_power_LR(speed, speed);*/
+		
+				/*serial_tx_uint16_t(reflected_light_values[0]);
+		_delay_ms(50);
+		serial_tx_uint16_t(reflected_light_values[1]);
+		_delay_ms(50);
+		serial_tx_uint16_t(reflected_light_values[2]);
+		_delay_ms(50);
+		serial_tx_uint16_t(reflected_light_values[3]);
+		_delay_ms(50);
+		serial_tx_uint16_t(reflected_light_values[4]);
+		_delay_ms(50);
+		serial_tx_uint16_t(reflected_light_values[5]);
+		_delay_ms(50);
+		serial_tx_uint16_t(reflected_light_values[6]);
+		_delay_ms(50);
+		serial_tx_uint16_t(reflected_light_values[7]);
+		_delay_ms(200);*/
+		
+		
+///GOOD CODE
+/*int main(void) {
+	
+	initialize_registers();
+	initialise_sensors();
+	
+	//Initialise serial 1. TXD PD3, RXD PD2.
+	init_serial(9600);
+	
+	uint16_t reflected_light_values[8];
+	
+	//buf = (char*) malloc(20 * sizeof(char*));
+	
+	double integral = 0;
+	double last_error = 0;
+	double last_derivate = 0;
+	
+	while (1) {
+		get_reflected_light_values(reflected_light_values);
+
+		//Error between 0 and 1
+		double error = calculate_error(reflected_light_values) / 63;
+		
+		double derivative = ((error - last_error) / 0.002) * 0.5 + last_derivate * 0.5;
+		last_derivate = derivative;
+		last_error = error;
+		
+		integral = integral * 0.99 + error * 0.002;
+		
+		double turn_value = error * KP + integral * KI + derivative * KD;
+		
+		set_motor_power_LR(0.5 - turn_value, 0.5 + turn_value);
+		
+		_delay_ms(2);
+	}
+	
+	return 1;
+}*/

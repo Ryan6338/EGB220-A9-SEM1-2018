@@ -83,12 +83,12 @@ uint16_t read_sensor(uint16_t sensor) {
 
 //Read all sensor values and return in an array
 void get_reflected_light_values(uint16_t * reflected_light) {
-	reflected_light[0] = read_sensor(0);
-	reflected_light[1] = read_sensor(1);
-	reflected_light[2] = read_sensor(2);
-	reflected_light[3] = read_sensor(3);
-	reflected_light[4] = read_sensor(4);
-	reflected_light[5] = read_sensor(5);
-	reflected_light[6] = read_sensor(6);
-	reflected_light[7] = read_sensor(7);
+	reflected_light[7] = read_sensor(0);
+	reflected_light[6] = read_sensor(1);
+	reflected_light[5] = read_sensor(2);
+	reflected_light[4] = read_sensor(3);
+	reflected_light[3] = read_sensor(4);
+	reflected_light[2] = read_sensor(5);
+	reflected_light[1] = read_sensor(6);
+	reflected_light[0] = read_sensor(7);
 }
