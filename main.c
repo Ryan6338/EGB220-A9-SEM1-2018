@@ -3,20 +3,34 @@
 #endif
 
 #include <avr/io.h>
-//#include <avr/interrupt.h>
+#include <avr/interrupt.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <util/delay.h>
 #include <math.h>
 
-#include "Serial.h"
+//#include "Serial.h"
 #include "PID_Line_Code.h"
 #include "SensorArray.h"
 
 #define KP 1.3
 #define KI 0.4
 #define KD 0.15
+
+volatile uint32_t overflow_counter = 0;
+
+ISR(TIMER0_OVF_vect) {
+	overflow_counter++;
+}
+
+ISR(TIMER3_OVF_vect) {
+	
+}
+
+double get_time() {
+	return 256.0 * ((overflow_counter * 256.0 + TCNT0) / F_CPU);
+}
 
 //Set leds using bitmap
 void set_leds(uint8_t format) {
@@ -60,26 +74,37 @@ void initialize_registers() {
 	DDRB |= (1<<7) | (1<<6) | (1<<5);
 	DDRD |= (1<<0);
 	
-	//Prescaler set to 256
-	TCCR0A |= (1<<7) | (1<<5) | (1<<WGM10);
-	TCCR0B |= (1<<CS02);
+	//Enable interrupts on timer 0
+	TIMSK0 |= (1<<0);
+	
+	TCCR3A = 0;
+	TCCR3B = 1; //Prescaler = 1
+	TIMSK3 |= (1<<0); //Enable timer 3 interrupts
+	
+	/*
+	 * PWM Setup
+	 */
+	TCCR0A |= (1<<7) | (1<<5) | (1<<WGM0010); //8-bit, phase corrected PWM
+	TCCR0B |= (1<<CS02); //Prescaler = 256
 	
 	//Set Waveform generation to 8-bit, phase corrected PWM.
-	TCCR1A |= (1<<COM1A1) | (1<<COM1B1) | (1<<WGM10);
+	TCCR1A |= (1<<COM1A1) | (1<<COM1B1) | (1<<WGM10); 
 	TCCR1A &= ~(1<<WGM11);
 	
 	TCCR1B |= (1<<CS12); //Set prescaler to 256
-	TCCR1B &= ~((1<<CS11) | (1<<CS10) | (1<<WGM13) | (1<<WGM12));
+	TCCR1B &= ~((1<<CS11) | (1<<CS10) | (1<<WGM13) | (1<<WGM12)); //Ensure other bits are cleared
 }
 
 //Set motor power (-1.0 to 1.0)
 void set_motor_power_LR(double a, double b) {
 	
-	double scale = fabs(a) > fabs(b) ? fabs(a) : fabs(b);
-	if (scale < 1) scale = 1;
+	double scale = fabs(a) > fabs(b) ? fabs(a) : fabs(b); //Set scale to largest speed
 	
-	double left = a / scale;
-	double right = b / scale;
+	//If scale > 1, scale speeds
+	if (scale > 1) {
+		double left = a / scale;
+		double right = b / scale;
+	}
 	
 	if (left > 0) {
 		OCR0A = (uint8_t) (left * 255);
@@ -98,7 +123,25 @@ void set_motor_power_LR(double a, double b) {
 	}
 }
 
+void update_button_states(uint8_t * button_states) {
+	*button_states = *button_states | *button_states << 2;
+
+	//Update button state
+	sw0_states = sw0_states << 1 | ((PINC >> 6) & 1);
+	sw1_states = sw1_states << 1 | ((PINC >> 7) & 1);
+
+	if (sw0_states == 0b11111111) *button_states |= (1 << 0);
+	if (sw1_states == 0b11111111) *button_states |= (1 << 1);
+
+	if (sw0_states == 0) *button_states &= ~(1 << 0);
+	if (sw1_states == 0) *button_states &= ~(1 << 1);
+}
+
 int main(void) {
+	
+	sei();
+	
+	uint8_t button_states;
 	
 	initialize_registers();
 	initialise_sensors();
@@ -113,53 +156,39 @@ int main(void) {
 	double integral = 0;
 	double last_error = 0;
 	double last_derivate = 0;
+	double last_time = get_time();
 	
 	while (1) {
+		double current_time = get_time();
+		double dt = current_time - last_time;
+		last_time = current_time;
+		
+		update_button_states(&button_states);
+		
 		get_reflected_light_values(reflected_light_values);
 
 		//Error between 0 and 1
 		double error = calculate_error(reflected_light_values) / 63;
 		
-		double derivative = ((error - last_error) / 0.002) * 0.5 + last_derivate * 0.5;
+		double derivative = ((error - last_error) / dt) * 0.5 + last_derivate * 0.5;
 		last_derivate = derivative;
 		last_error = error;
 		
-		integral = integral * 0.99 + error * 0.002;
+		integral = integral * 0.99 + error * dt;
 		
 		if (integral * error < 0) integral = 0;
 		
 		double turn_value = error * KP + integral * KI + derivative * KD;
 		
 		set_motor_power_LR(1 - turn_value, 1 + turn_value);
-		
-		_delay_ms(2);
 	}
 	
 	return 1;
 }
 
-// Transmit reflected light values over serial. Updates a single
-// line at a time.
-
 /*
 
-float turn_value = error * KP;
-float power_left = 0.15 - turn_value;
-float power_right = 0.15 + turn_value;
-
 set_motor_power_LR(power_left, power_right);*/
-
-/*button_states = button_states | button_states << 2;
-
-//Update button state
-sw0_states = sw0_states << 1 | ((PINC >> 6) & 1);
-sw1_states = sw1_states << 1 | ((PINC >> 7) & 1);
-
-if (sw0_states == 0b11111111) button_states |= (1 << 0);
-if (sw1_states == 0b11111111) button_states |= (1 << 1);
-
-if (sw0_states == 0) button_states &= ~(1 << 0);
-if (sw1_states == 0) button_states &= ~(1 << 1);
 
 		//USART_Transmit((uint8_t) buf[0]);
 		//_delay_ms(20);
