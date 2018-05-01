@@ -13,7 +13,7 @@ const int16_t sensor_offset[] = {-33, -24, -15, -5, 5, 15, 24, 33};
 
 //Function scales light value to be linear with distance from line
 double adjust_light(uint16_t r) {
-	return ((double) r - 12.4290) / 46.7460;
+	return ((double) r - 12.5) / 40;
 }
 
 uint8_t check_sensor_states(uint16_t * reflected_light) {

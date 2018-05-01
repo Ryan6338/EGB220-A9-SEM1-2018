@@ -14,9 +14,9 @@
 #include "PID_Line_Code.h"
 #include "SensorArray.h"
 
-#define KP 1.3
-#define KI 0.4
-#define KD 0.15
+#define KP 2
+#define KI 2.4
+#define KD 0.7
 #define MAX_SPEED 1
 
 volatile uint32_t overflow_counter = 0;
@@ -104,7 +104,7 @@ void initialize_registers() {
 }
 
 //Set motor power (-1.0 to 1.0)
-void set_motor_power_LR(double a, double b) {
+void set_motor_power_LR(double b, double a) {
 	
 	double scale = fabs(a) > fabs(b) ? fabs(a) : fabs(b); //Set scale to largest speed
 
@@ -134,8 +134,6 @@ int main(void) {
 	
 	sei();
 	
-	uint8_t button_states;
-	
 	initialize_registers();
 	initialise_sensors();
 	
@@ -144,50 +142,65 @@ int main(void) {
 	
 	uint16_t reflected_light_values[8];
 	
+	uint8_t robot_running = 0;
+	
 	double integral = 0;
 	double last_error = 0;
 	double last_derivate = 0;
 	double last_time = get_time();
 	double lost_time = 0;
 	
+	
+	set_leds(0b0101);
 	while (1) {
 		double current_time = get_time();
 		double dt = current_time - last_time;
 		last_time = current_time;
 		
-		set_leds(button_states);
+		if (button_states & 1) robot_running = 1;
+		else if (button_states >> 1 & 1) robot_running = 0;
 		
-		get_reflected_light_values(reflected_light_values);
+		if (robot_running == 1) {
+			
+			set_leds(button_states);
+			
+			get_reflected_light_values(reflected_light_values);
 
-		switch (check_sensor_states(reflected_light_values)) {
-		case 0: //Normal Operation
-			lost_time = 0; // Robot not lost
-		
-			//Error value (between -1 and 1)
-			double error = calculate_error(reflected_light_values);
+			switch (check_sensor_states(reflected_light_values)) {
+			case 0: //Normal Operation
+				lost_time = 0; // Robot not lost
 			
-			//Exponential filter on derivative to reduce erratic behaviour
-			double derivative = ((error - last_error) / dt) * 0.2 + last_derivate * 0.8;
-			last_derivate = derivative;
-			last_error = error;
-			
-			integral = integral * (1 - dt) + error * dt;
-			
-			if (integral * error < 0) integral = 0;
-			
-			double turn_value = error * KP + integral * KI + derivative * KD;
-			
-			set_motor_power_LR(MAX_SPEED - turn_value, MAX_SPEED + turn_value);
-			break;
-		case 1: //White line crossover
-			lost_time = 0; // Robot not lost
-			set_motor_power_LR(MAX_SPEED, MAX_SPEED);
-			break;
-		case 2: //All black, robot lost.
-			if (lost_time == 0) lost_time = get_time(); //Set lost time to current time
-			else if (get_time() - lost_time > 0.4) set_motor_power_LR(0, 0); //Stop Motors
-			else if (get_time() - lost_time > 0.2) set_motor_power_LR(-0.1, -0.1); //Brake hard
-			break;
+				//Error value (between -1 and 1)
+				double error = calculate_error(reflected_light_values);
+				
+				//Exponential filter on derivative to reduce erratic behaviour
+				double derivative = ((error - last_error) / 0.01) * 0.5 + last_derivate * 0.5;
+				last_derivate = derivative;
+				last_error = error;
+				
+				integral = integral * (1 - 0.01) + error * 0.01;
+				
+				if (integral * error < 0) integral = 0;
+				
+				double turn_value = error * KP + integral * KI + derivative * KD;
+				
+				set_motor_power_LR(MAX_SPEED - turn_value, MAX_SPEED + turn_value);
+				break;
+			case 1: //White line crossover
+				if (lost_time == 0) lost_time = get_time();
+				else if (get_time() - lost_time > 0.4) set_motor_power_LR(0, 0); //Stop Motors
+				else if (get_time() - lost_time > 0.2) set_motor_power_LR(-0.1, -0.1); //Brake hard
+				else set_motor_power_LR(MAX_SPEED, MAX_SPEED);
+				break;
+			case 2: //All black, robot lost.
+				if (lost_time == 0) lost_time = get_time(); //Set lost time to current time
+				else if (get_time() - lost_time > 0.4) set_motor_power_LR(0, 0); //Stop Motors
+				else if (get_time() - lost_time > 0.2) set_motor_power_LR(-0.1, -0.1); //Brake hard
+				break;
+			}
+			_delay_ms(1);
+		} else {
+			set_leds(0b0000);
 		}
 	}
 	
