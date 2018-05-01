@@ -5,5 +5,6 @@
 #include <stdio.h>
 
 double calculate_error(uint16_t * reflected_light);
+uint8_t check_sensor_states(uint16_t * reflected_light);
 
 #endif

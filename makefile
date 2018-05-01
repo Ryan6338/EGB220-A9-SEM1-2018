@@ -1,7 +1,6 @@
 TARGETS = \
 	SensorArray.o\
 	PID_Line_code.o\
-	#Serial.o\
 	main.o
 
 all: $(TARGETS) FLASH.bin

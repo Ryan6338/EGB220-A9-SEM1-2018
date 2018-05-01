@@ -17,15 +17,27 @@
 #define KP 1.3
 #define KI 0.4
 #define KD 0.15
+#define MAX_SPEED 1
 
 volatile uint32_t overflow_counter = 0;
+volatile uint8_t sw0_states = 0;
+volatile uint8_t sw1_states = 0;
+volatile uint8_t button_states = 0;
 
 ISR(TIMER0_OVF_vect) {
 	overflow_counter++;
-}
-
-ISR(TIMER3_OVF_vect) {
 	
+	//Shift button position into switch states. Takes ~3ms to achieve a switch
+	sw0_states = sw0_states << 1 | ((PINC >> 6) & 1);
+	sw1_states = sw1_states << 1 | ((PINC >> 7) & 1);
+	
+	//If button fully down, set on
+	if (sw0_states == 0xFF) button_states |= (1 << 0);
+	if (sw1_states == 0xFF) button_states |= (1 << 1);
+	
+	//If button fully off, set off
+	if (sw0_states == 0) button_states &= ~(1 << 0);
+	if (sw1_states == 0) button_states &= ~(1 << 1);
 }
 
 double get_time() {
@@ -77,14 +89,10 @@ void initialize_registers() {
 	//Enable interrupts on timer 0
 	TIMSK0 |= (1<<0);
 	
-	TCCR3A = 0;
-	TCCR3B = 1; //Prescaler = 1
-	TIMSK3 |= (1<<0); //Enable timer 3 interrupts
-	
 	/*
 	 * PWM Setup
 	 */
-	TCCR0A |= (1<<7) | (1<<5) | (1<<WGM0010); //8-bit, phase corrected PWM
+	TCCR0A |= (1<<7) | (1<<5) | (1<<WGM10); //8-bit, phase corrected PWM
 	TCCR0B |= (1<<CS02); //Prescaler = 256
 	
 	//Set Waveform generation to 8-bit, phase corrected PWM.
@@ -99,12 +107,11 @@ void initialize_registers() {
 void set_motor_power_LR(double a, double b) {
 	
 	double scale = fabs(a) > fabs(b) ? fabs(a) : fabs(b); //Set scale to largest speed
+
+	if (scale < 1) scale = 1;
 	
-	//If scale > 1, scale speeds
-	if (scale > 1) {
-		double left = a / scale;
-		double right = b / scale;
-	}
+	double left = a / scale;
+	double right = b / scale;
 	
 	if (left > 0) {
 		OCR0A = (uint8_t) (left * 255);
@@ -123,20 +130,6 @@ void set_motor_power_LR(double a, double b) {
 	}
 }
 
-void update_button_states(uint8_t * button_states) {
-	*button_states = *button_states | *button_states << 2;
-
-	//Update button state
-	sw0_states = sw0_states << 1 | ((PINC >> 6) & 1);
-	sw1_states = sw1_states << 1 | ((PINC >> 7) & 1);
-
-	if (sw0_states == 0b11111111) *button_states |= (1 << 0);
-	if (sw1_states == 0b11111111) *button_states |= (1 << 1);
-
-	if (sw0_states == 0) *button_states &= ~(1 << 0);
-	if (sw1_states == 0) *button_states &= ~(1 << 1);
-}
-
 int main(void) {
 	
 	sei();
@@ -147,85 +140,96 @@ int main(void) {
 	initialise_sensors();
 	
 	//Initialise serial 1. TXD PD3, RXD PD2.
-	init_serial(9600);
+	//init_serial(9600);
 	
 	uint16_t reflected_light_values[8];
-	
-	//buf = (char*) malloc(20 * sizeof(char*));
 	
 	double integral = 0;
 	double last_error = 0;
 	double last_derivate = 0;
 	double last_time = get_time();
+	double lost_time = 0;
 	
 	while (1) {
 		double current_time = get_time();
 		double dt = current_time - last_time;
 		last_time = current_time;
 		
-		update_button_states(&button_states);
+		set_leds(button_states);
 		
 		get_reflected_light_values(reflected_light_values);
 
-		//Error between 0 and 1
-		double error = calculate_error(reflected_light_values) / 63;
+		switch (check_sensor_states(reflected_light_values)) {
+		case 0: //Normal Operation
+			lost_time = 0; // Robot not lost
 		
-		double derivative = ((error - last_error) / dt) * 0.5 + last_derivate * 0.5;
-		last_derivate = derivative;
-		last_error = error;
-		
-		integral = integral * 0.99 + error * dt;
-		
-		if (integral * error < 0) integral = 0;
-		
-		double turn_value = error * KP + integral * KI + derivative * KD;
-		
-		set_motor_power_LR(1 - turn_value, 1 + turn_value);
+			//Error value (between -1 and 1)
+			double error = calculate_error(reflected_light_values);
+			
+			//Exponential filter on derivative to reduce erratic behaviour
+			double derivative = ((error - last_error) / dt) * 0.2 + last_derivate * 0.8;
+			last_derivate = derivative;
+			last_error = error;
+			
+			integral = integral * (1 - dt) + error * dt;
+			
+			if (integral * error < 0) integral = 0;
+			
+			double turn_value = error * KP + integral * KI + derivative * KD;
+			
+			set_motor_power_LR(MAX_SPEED - turn_value, MAX_SPEED + turn_value);
+			break;
+		case 1: //White line crossover
+			lost_time = 0; // Robot not lost
+			set_motor_power_LR(MAX_SPEED, MAX_SPEED);
+			break;
+		case 2: //All black, robot lost.
+			if (lost_time == 0) lost_time = get_time(); //Set lost time to current time
+			else if (get_time() - lost_time > 0.4) set_motor_power_LR(0, 0); //Stop Motors
+			else if (get_time() - lost_time > 0.2) set_motor_power_LR(-0.1, -0.1); //Brake hard
+			break;
+		}
 	}
 	
 	return 1;
 }
 
+//USART_Transmit((uint8_t) buf[0]);
+//_delay_ms(20);
+		
 /*
+//Update button state
+sw0_button_state = sw0_button_state << 1 | ((PINC >> 6) & 1);
+sw1_button_state = sw1_button_state << 1 | ((PINC >> 7) & 1);
 
-set_motor_power_LR(power_left, power_right);*/
+if (sw0_states == 0b11111111) current_button_states |= (1 << 0);
+if (sw1_states == 0b11111111) current_button_states |= (1 << 1);
 
-		//USART_Transmit((uint8_t) buf[0]);
-		//_delay_ms(20);
-		
-		/*
-		//Update button state
-		sw0_button_state = sw0_button_state << 1 | ((PINC >> 6) & 1);
-		sw1_button_state = sw1_button_state << 1 | ((PINC >> 7) & 1);
-		
-		if (sw0_states == 0b11111111) current_button_states |= (1 << 0);
-		if (sw1_states == 0b11111111) current_button_states |= (1 << 1);
-		
-		if (sw0_states == 0) current_button_states &= ~(1 << 0);
-		if (sw1_states == 0) current_button_states &= ~(1 << 1);
-		
-		if (((current_button_states >> 0) & 1) == 1) set_motor_power_LR(0, 0);
-		if (((current_button_states >> 1) & 1) == 1) set_motor_power_LR(1, 1);*/
-	
-		/*uint8_t speed = reflected_light_values[0];
-		set_motor_power_LR(speed, speed);*/
-		
-				/*serial_tx_uint16_t(reflected_light_values[0]);
-		_delay_ms(50);
-		serial_tx_uint16_t(reflected_light_values[1]);
-		_delay_ms(50);
-		serial_tx_uint16_t(reflected_light_values[2]);
-		_delay_ms(50);
-		serial_tx_uint16_t(reflected_light_values[3]);
-		_delay_ms(50);
-		serial_tx_uint16_t(reflected_light_values[4]);
-		_delay_ms(50);
-		serial_tx_uint16_t(reflected_light_values[5]);
-		_delay_ms(50);
-		serial_tx_uint16_t(reflected_light_values[6]);
-		_delay_ms(50);
-		serial_tx_uint16_t(reflected_light_values[7]);
-		_delay_ms(200);*/
+if (sw0_states == 0) current_button_states &= ~(1 << 0);
+if (sw1_states == 0) current_button_states &= ~(1 << 1);
+
+if (((current_button_states >> 0) & 1) == 1) set_motor_power_LR(0, 0);
+if (((current_button_states >> 1) & 1) == 1) set_motor_power_LR(1, 1);*/
+
+/*uint8_t speed = reflected_light_values[0];
+set_motor_power_LR(speed, speed);*/
+
+/*serial_tx_uint16_t(reflected_light_values[0]);
+_delay_ms(50);
+serial_tx_uint16_t(reflected_light_values[1]);
+_delay_ms(50);
+serial_tx_uint16_t(reflected_light_values[2]);
+_delay_ms(50);
+serial_tx_uint16_t(reflected_light_values[3]);
+_delay_ms(50);
+serial_tx_uint16_t(reflected_light_values[4]);
+_delay_ms(50);
+serial_tx_uint16_t(reflected_light_values[5]);
+_delay_ms(50);
+serial_tx_uint16_t(reflected_light_values[6]);
+_delay_ms(50);
+serial_tx_uint16_t(reflected_light_values[7]);
+_delay_ms(200);*/
 		
 		
 ///GOOD CODE

@@ -1,6 +1,5 @@
 #define LIGHT_THRESHOLD_HIGH 920 //Black
-#define LIGHT_THRESHOLD_LOW 60 //White
-#define LIGHT_THRESHOLD_MID (LIGHT_THRESHOLD_LOW + (LIGHT_THRESHOLD_HIGH - LIGHT_THRESHOLD_LOW) / 2)
+#define CROSSOVER_AVG_THRESHOLD 500 //White (Only used for crossover)
 #define SENSOR_COUNT 8
 
 #include "PID_Line_Code.h"
@@ -15,6 +14,22 @@ const int16_t sensor_offset[] = {-33, -24, -15, -5, 5, 15, 24, 33};
 //Function scales light value to be linear with distance from line
 double adjust_light(uint16_t r) {
 	return ((double) r - 12.4290) / 46.7460;
+}
+
+uint8_t check_sensor_states(uint16_t * reflected_light) {
+	int i;
+	uint32_t average;
+	uint16_t min = 1023;
+	for (i = 0; i < SENSOR_COUNT; i++) {
+		average += reflected_light[i];
+		min = reflected_light[i] < min ? reflected_light[i] : min;
+	}
+	
+	average = average / SENSOR_COUNT;
+	
+	if (average < CROSSOVER_AVG_THRESHOLD) return 1;
+	else if (min > LIGHT_THRESHOLD_HIGH) return 2;
+	else return 0;
 }
 
 double calculate_error(uint16_t * reflected_light) {
@@ -54,5 +69,6 @@ double calculate_error(uint16_t * reflected_light) {
 	
 	if (useful_sensors > 0) error = error / useful_sensors;
 	
-	return error;
+	//Divide error by maximum possible value
+	return error / (adjust_light(LIGHT_THRESHOLD_HIGH) + sensor_offset[SENSOR_COUNT-1]);
 }
