@@ -10,7 +10,6 @@
 #include <stdlib.h>
 #include <util/delay.h>
 
-#include "Serial.h"
 #include "PID_Line_Code.h"
 #include "SensorArray.h"
 #include "RobotControl.h"
@@ -23,7 +22,6 @@ static volatile uint8_t button_states = 0;
 
 ISR(TIMER0_OVF_vect) {
 	overflow_counter++;
-	
 	
 	/**
     *  Debouncing buttons
@@ -68,12 +66,6 @@ int main(void) {
 	while (1) {
 		
 		get_reflected_light_values(reflected_light_values);
-		
-		if ((button_states & 1) && (button_states & 1) != last_state) {
-			eeprom_write_word((uint16_t*) addr, (uint16_t) (calculate_error(reflected_light_values) * 1000));
-		}
-		
-		last_state = button_states & 1;
 		
 		double current_time = get_time();
 		double dt = current_time - last_time;
@@ -121,9 +113,9 @@ int main(void) {
 				
 				double turn_value = calculate_PID_turn_value(reflected_light_values, dt);
 				
-				filtered_turn = filtered_turn * (1-TURN_FILTER) + turn_value * TURN_FILTER;
+				filtered_turn = filtered_turn * (1 - TURN_FILTER) + turn_value * TURN_FILTER;
 				
-				set_motor_power_LR(MAX_SPEED - turn_value, MAX_SPEED + turn_value);
+				set_differential_power(MAX_SPEED, turn_value);
 				break;
 			case WHITE: //White line crossover
 			
@@ -165,16 +157,8 @@ int main(void) {
 
 //USART_Transmit((uint8_t) buf[0]);
 //_delay_ms(20);
-		
-/*
-//Update button state
-sw0_button_state = sw0_button_state << 1 | ((PINC >> 6) & 1);
-sw1_button_state = sw1_button_state << 1 | ((PINC >> 7) & 1);
 
-if (sw0_states == 0b11111111) current_button_states |= (1 << 0);
-if (sw1_states == 0b11111111) current_button_states |= (1 << 1);
-
-if (sw0_states == 0) current_button_states &= ~(1 << 0);
+/*if (sw0_states == 0) current_button_states &= ~(1 << 0);
 if (sw1_states == 0) current_button_states &= ~(1 << 1);
 
 if (((current_button_states >> 0) & 1) == 1) set_motor_power_LR(0, 0);
@@ -199,43 +183,3 @@ serial_tx_uint16_t(reflected_light_values[6]);
 _delay_ms(50);
 serial_tx_uint16_t(reflected_light_values[7]);
 _delay_ms(200);*/
-		
-		
-///GOOD CODE
-/*int main(void) {
-	
-	initialize_registers();
-	initialise_sensors();
-	
-	//Initialise serial 1. TXD PD3, RXD PD2.
-	init_serial(9600);
-	
-	uint16_t reflected_light_values[8];
-	
-	//buf = (char*) malloc(20 * sizeof(char*));
-	
-	double integral = 0;
-	double last_error = 0;
-	double last_derivate = 0;
-	
-	while (1) {
-		get_reflected_light_values(reflected_light_values);
-
-		//Error between 0 and 1
-		double error = calculate_error(reflected_light_values) / 63;
-		
-		double derivative = ((error - last_error) / 0.002) * 0.5 + last_derivate * 0.5;
-		last_derivate = derivative;
-		last_error = error;
-		
-		integral = integral * 0.99 + error * 0.002;
-		
-		double turn_value = error * KP + integral * KI + derivative * KD;
-		
-		set_motor_power_LR(0.5 - turn_value, 0.5 + turn_value);
-		
-		_delay_ms(2);
-	}
-	
-	return 1;
-}*/

@@ -3,7 +3,7 @@
 
 #define MAX_SPEED 1
 #define COUNTDOWN_TIME .5
-#define TURN_FILTER 0.025
+#define TURN_FILTER 0.05
 #define SLIGHT_TURN 0.3
 #define HARD_TURN 0.6
 

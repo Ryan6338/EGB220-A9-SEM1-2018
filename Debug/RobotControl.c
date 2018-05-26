@@ -67,7 +67,7 @@ void set_motor_power_LR(double b, double a) {
 	if (scale < 1) scale = 1;
 	
 	double left = a / scale;
-	double right = b / scale;
+	double right = -b / scale;
 	
 	if (left < 0) {
 		OCR0A = (uint8_t) (-left * 255);
@@ -84,4 +84,26 @@ void set_motor_power_LR(double b, double a) {
 		OCR1B = (uint8_t) (right * 255);
 		OCR1A = 0;
 	}
+}
+
+//Set motor power (-1.0 to 1.0)
+void set_differential_power(double speed, double turn_value) {
+	
+	double threshold_turn = turn_value > 0 ? (turn_value > 1.5 * speed ? 1.5 * speed : turn_value)
+								: (turn_value < -1.5 * speed ? - 1.5 * speed : turn_value);
+	
+	double left;
+	double right;
+	
+	if (threshold_turn > 0) {
+		left = 1;
+		right = speed - threshold_turn;
+	} else {
+		right = 1;
+		left = speed + threshold_turn;
+	}
+	
+	
+	
+	set_motor_power_LR(left, right);
 }
