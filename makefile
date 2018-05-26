@@ -1,6 +1,7 @@
 TARGETS = \
 	SensorArray.o\
 	PID_Line_code.o\
+	RobotControl.o\
 	main.o
 
 all: $(TARGETS) FLASH.bin
