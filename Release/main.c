@@ -126,7 +126,7 @@ int main(void) {
 				else if (get_time() - lost_time < 0.2) set_motor_power_LR(MAX_SPEED, MAX_SPEED);
 				else if (get_time() - lost_time < 0.4) set_motor_power_LR(-0.1, -0.1); //Brake hard
 				else if (get_time() - lost_time < 0.6) set_motor_power_LR(0, 0); //Stop Motors
-				else if (get_time() - lost_time > 0.6) robot_state = 0;
+				else if (get_time() - lost_time > 0.6) robot_state = STOPPED;
 				break;
 			case BLACK: //All black, robot lost.
 			
@@ -136,7 +136,7 @@ int main(void) {
 				if (lost_time == -1) lost_time = get_time(); //Set lost time to current time
 				else if (get_time() - lost_time < 0.4 && get_time() - lost_time > 0.2) set_motor_power_LR(-0.1, -0.1); //Brake hard
 				else if (get_time() - lost_time < 0.6) set_motor_power_LR(0, 0); //Stop Motors
-				else if (get_time() - lost_time > 0.6) robot_state = 0;
+				else if (get_time() - lost_time > 0.6) robot_state = STOPPED;
 				break;
 			}
 			
