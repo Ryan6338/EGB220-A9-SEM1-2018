@@ -39,38 +39,32 @@ uint16_t read_sensor(uint16_t sensor) {
 	
 	switch (sensor) {
 		case 0:
-			ADMUX |= 0b00000; //s0, ADC0
-			break;
-		case 1:
 			ADMUX |= 0b00100; //S1, ADC4
 			break;
-		case 2:
+		case 1:
 			ADMUX |= 0b00101; //S2, ADC5
 			break;
-		case 3:
+		case 2:
 			ADMUX |= 0b00110; //S3, ADC6
 			break;
-		case 4:
+		case 3:
 			ADMUX |= 0b00111; //S4, ADC7
 			break;
-		case 5:
+		case 4:
 			ADCSRB |= (1<<5);
 			ADMUX |= 0b00011; //S5, ADC11
 			break;
-		case 6:
+		case 5:
 			ADCSRB |= (1<<5);
 			ADMUX |= 0b00010; //S6, ADC10
 			break;
-		case 7:
+		case 6:
 			ADCSRB |= (1<<5);
 			ADMUX |= 0b00001; //S7, ADC9
 			break;
-		case 8:
+		case 7:
 			ADCSRB |= (1<<5);
 			ADMUX |= 0b00000; //S8, ADC8
-			break;
-		case 9:
-			ADMUX |= 0b00001; //S9, ADC1
 			break;
 	}
 	
@@ -89,14 +83,12 @@ uint16_t read_sensor(uint16_t sensor) {
 
 //Read all sensor values and return in an array
 void get_reflected_light_values(uint16_t * reflected_light) {
-	reflected_light[9] = read_sensor(0);
-	reflected_light[8] = read_sensor(1);
-	reflected_light[7] = read_sensor(2);
-	reflected_light[6] = read_sensor(3);
-	reflected_light[5] = read_sensor(4);
-	reflected_light[4] = read_sensor(5);
-	reflected_light[3] = read_sensor(6);
-	reflected_light[2] = read_sensor(7);
-	reflected_light[1] = read_sensor(8);
-	reflected_light[0] = read_sensor(9);
+	reflected_light[7] = read_sensor(0);
+	reflected_light[6] = read_sensor(1);
+	reflected_light[5] = read_sensor(2);
+	reflected_light[4] = read_sensor(3);
+	reflected_light[3] = read_sensor(4);
+	reflected_light[2] = read_sensor(5);
+	reflected_light[1] = read_sensor(6);
+	reflected_light[0] = read_sensor(7);
 }

@@ -1,3 +1,4 @@
+<<<<<<< HEAD:Release/main.h
 #ifndef MAIN_H
 #define MAIN_H
 
@@ -14,3 +15,5 @@ typedef enum RobotState {
 } RobotState;
 
 #endif
+=======
+>>>>>>> parent of 1cb0377... Code for new chassis:main.h
