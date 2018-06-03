@@ -9,7 +9,8 @@ typedef enum RobotState {
 	RUNNING_HALFSPEED,
 	CALIBRATION,
 	COUNTDOWN,
-	FINISH
+	FINISH,
+	RESTARTING
 } RobotState;
 
 #endif

@@ -1,5 +1,5 @@
 #define LIGHT_THRESHOLD_HIGH 800 //Black
-#define CROSSOVER_AVG_THRESHOLD 600 //White (Only used for crossover)
+#define CROSSOVER_AVG_THRESHOLD 700 //White (Only used for crossover)
 #define SENSOR_COUNT 10
 
 #include "PID_Line_Code.h"
@@ -11,7 +11,6 @@ static double last_error = 0;
 static double last_derivate = 0;
 
 static double kP, kI, kD;
-
 void set_pid_constants(double new_kP, double new_kI, double new_kD) {
 	kP = new_kP;
 	kI = new_kI;
@@ -43,12 +42,12 @@ SensorStates check_sensor_states(uint16_t * reflected_light) {
 	int i;
 	uint32_t average = 0;
 	uint16_t min = 1023;
-	for (i = 0; i < SENSOR_COUNT; i++) {
-		average += (uint32_t) reflected_light[i];
+	for (i = 1; i < 9; i++) {
+		average += reflected_light[i];
 		min = reflected_light[i] < min ? reflected_light[i] : min;
 	}
 	
-	average = average / SENSOR_COUNT;
+	average = average / 8;
 	
 	if (average < CROSSOVER_AVG_THRESHOLD) return WHITE;
 	else if (min > LIGHT_THRESHOLD_HIGH) return BLACK;
@@ -93,5 +92,5 @@ double calculate_error(uint16_t * reflected_light) {
 	if (useful_sensors > 0) error = error / useful_sensors;
 	
 	//Divide error by maximum possible value
-	return error / (adjust_light(LIGHT_THRESHOLD_HIGH) + sensor_offset[SENSOR_COUNT-2]);
+	return -error / (adjust_light(LIGHT_THRESHOLD_HIGH) + sensor_offset[SENSOR_COUNT-2]);
 }

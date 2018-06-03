@@ -10,10 +10,7 @@
 #include <util/delay.h>
 #include <math.h>
 
-<<<<<<< HEAD:Release/main.c
-=======
 //#include "Serial.h"
->>>>>>> parent of 1cb0377... Code for new chassis:main.c
 #include "PID_Line_Code.h"
 #include "SensorArray.h"
 
@@ -30,13 +27,9 @@ volatile uint8_t button_states = 0;
 ISR(TIMER0_OVF_vect) {
 	overflow_counter++;
 	
-<<<<<<< HEAD:Release/main.c
 	/**
     *  Debouncing buttons
 	 **/
-	
-=======
->>>>>>> parent of 1cb0377... Code for new chassis:main.c
 	//Shift button position into switch states. Takes ~3ms to achieve a switch
 	sw0_states = sw0_states << 1 | ((PINC >> 6) & 1);
 	sw1_states = sw1_states << 1 | ((PINC >> 7) & 1);
@@ -163,12 +156,9 @@ int main(void) {
 	
 	set_leds(0b0101);
 	while (1) {
-<<<<<<< HEAD:Release/main.c
 		
 		get_reflected_light_values(reflected_light_values);
-		
-=======
->>>>>>> parent of 1cb0377... Code for new chassis:main.c
+	
 		double current_time = get_time();
 		double dt = current_time - last_time;
 		last_time = current_time;
@@ -196,17 +186,14 @@ int main(void) {
 				
 				integral = integral * (1 - 0.01) + error * 0.01;
 				
-<<<<<<< HEAD:Release/main.c
-				filtered_turn = filtered_turn * (1 - TURN_FILTER) + turn_value * TURN_FILTER;
-=======
+				//filtered_turn = filtered_turn * (1 - TURN_FILTER) + turn_value * TURN_FILTER;
 				if (integral * error < 0) integral = 0;
 				
 				double turn_value = error * KP + integral * KI + derivative * KD;
->>>>>>> parent of 1cb0377... Code for new chassis:main.c
 				
 				set_differential_power(MAX_SPEED, turn_value);
 				break;
-<<<<<<< HEAD:Release/main.c
+				
 			case WHITE: //White line crossover
 			
 				if (sin(get_time() * 150) > 0) set_leds(0b1111);
@@ -227,7 +214,7 @@ int main(void) {
 				else if (get_time() - lost_time < 0.4 && get_time() - lost_time > 0.2) set_motor_power_LR(-0.1, -0.1); //Brake hard
 				else if (get_time() - lost_time < 0.6) set_motor_power_LR(0, 0); //Stop Motors
 				else if (get_time() - lost_time > 0.6) robot_state = STOPPED;
-=======
+
 			case 1: //White line crossover
 				if (lost_time == 0) lost_time = get_time();
 				else if (get_time() - lost_time > 0.4) set_motor_power_LR(0, 0); //Stop Motors
@@ -238,7 +225,6 @@ int main(void) {
 				if (lost_time == 0) lost_time = get_time(); //Set lost time to current time
 				else if (get_time() - lost_time > 0.4) set_motor_power_LR(0, 0); //Stop Motors
 				else if (get_time() - lost_time > 0.2) set_motor_power_LR(-0.1, -0.1); //Brake hard
->>>>>>> parent of 1cb0377... Code for new chassis:main.c
 				break;
 			}
 			_delay_ms(1);
